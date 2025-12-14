@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="es">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" href="data:,">
+		<title>Proyecto Alquimista</title>
+		<style>
+			html, body {
+				margin: 0;
+				height: 100%;
+				overflow: hidden;
+				background: #0b0e13;
+				color: #e6e6e6;
+				font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+			}
+			#ui {
+				position: fixed;
+				top: 12px;
+				left: 12px;
+				background: rgba(0, 0, 0, 0.45);
+				backdrop-filter: blur(4px);
+				border: 1px solid rgba(255, 255, 255, 0.12);
+				padding: 10px 12px;
+				border-radius: 10px;
+				line-height: 1.35;
+				z-index: 10;
+				user-select: none;
+			}
+			#ui b { color: #79ffe1; }
+			#hint {
+				position: fixed;
+				bottom: 12px;
+				left: 50%;
+				transform: translateX(-50%);
+				background: rgba(0, 0, 0, 0.5);
+				padding: 8px 12px;
+				border-radius: 8px;
+				font-size: 14px;
+				border: 1px solid rgba(255,255,255,0.1);
+			}
+			canvas { display: block; }
+		</style>
+	</head>
+	<body>
+		<div id="ui">
+			<div><b>Movimiento:</b> WASD · Shift para correr · Mouse para girar</div>
+			<div><b>Acciones:</b> E recoger · F soltar en el caldero</div>
+			<div id="status">Cargando escenario…</div>
+			<div id="score" style="margin-top:4px;">Cristales: 0 · Setas: 0</div>
+		</div>
+		<div id="hint">Acércate a un cristal o seta y pulsa E</div>
+    <script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
+
+		<script type="module">
+			import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+			import { OrbitControls } from 'https://unpkg.com/three@0.160.0/examples/jsm/controls/OrbitControls.js';
+			import { GLTFLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/GLTFLoader.js';
+
+			const statusEl = document.getElementById('status');
+			const scoreEl = document.getElementById('score');
+			const hintEl = document.getElementById('hint');
+
+			const renderer = new THREE.WebGLRenderer({ antialias: true });
+			renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+			renderer.setSize(window.innerWidth, window.innerHeight);
+			renderer.outputColorSpace = THREE.SRGBColorSpace;
+			renderer.toneMapping = THREE.ACESFilmicToneMapping;
+			renderer.toneMappingExposure = 1.0;
+			document.body.appendChild(renderer.domElement);
+
+			const scene = new THREE.Scene();
+			scene.background = new THREE.Color(0x0b0e13);
+
+			const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
+			camera.position.set(4, 3, 6);
+
+			const controls = new OrbitControls(camera, renderer.domElement);
+			controls.enableDamping = true;
+			controls.target.set(0, 1, 0);
+
+			const hemi = new THREE.HemisphereLight(0xb1e1ff, 0x1b1b1b, 0.6);
+			scene.add(hemi);
+			const dir = new THREE.DirectionalLight(0xffffff, 1.1);
+			dir.position.set(5, 10, 5);
+			dir.castShadow = false;
+			scene.add(dir);
+
+			const clock = new THREE.Clock();
+
+			// Estado del juego
+			const state = {
+				loaded: false,
+				keys: {},
+				speed: 3.0,
+				runMultiplier: 1.7,
+				carrying: null,
+				collected: { cristales: 0, setas: 0 },
+			};
+
+			// Objetos clave
+			const refs = {
+				sceneRoot: null,
+				piso: null,
+				caldero: null,
+				alquimista: null,
+				player: new THREE.Group(),
+				handAnchor: new THREE.Group(),
+				collectibles: [], // { obj, kind: 'cristal'|'seta', taken: false, deposited: false }
+			};
+			refs.player.name = 'PlayerRoot';
+			refs.handAnchor.position.set(0.25, 1.4, 0.35); // offset aproximado frente a la mano
+			refs.handAnchor.name = 'HandAnchor';
+			refs.player.add(refs.handAnchor);
+			scene.add(refs.player);
+
+			// Utilidades
+			const tmpVec3 = new THREE.Vector3();
+			const tmpBox3 = new THREE.Box3();
+			function worldPos(obj) { obj.getWorldPosition(tmpVec3); return tmpVec3.clone(); }
+			function distance(a, b) { return a.distanceTo(b); }
+
+			// Carga del GLB exportado desde Blender
+			const loader = new GLTFLoader();
+			loader.load(
+				'./assets/models/esenario.glb',
+				(gltf) => {
+					refs.sceneRoot = gltf.scene;
+					scene.add(gltf.scene);
+
+					// Buscar nodos por nombre (tolerante a mayúsculas/minúsculas)
+					const byName = {};
+					gltf.scene.traverse((o) => {
+						if (!o.name) return;
+						byName[o.name.toLowerCase()] = o;
+					});
+
+					// Refs principales
+					refs.piso = byName['piso'] || null;
+					refs.caldero = byName['caldero'] || null;
+					refs.alquimista = byName['alquimista'] || null;
+
+					if (!refs.alquimista) {
+						statusEl.textContent = 'No se encontró el objeto "alquimista" en el GLB.';
+						console.warn('Objetos disponibles:', Object.keys(byName));
+						return;
+					}
+
+					// Posicionar el jugador donde está el alquimista, conservando transformaciones
+					const startPos = worldPos(refs.alquimista);
+					refs.player.position.copy(startPos);
+					// Reparent conservando transformaciones mundiales
+					refs.player.attach(refs.alquimista);
+
+					// Recolectables: cristales y setas por prefijo
+					const isCollectible = (name) => {
+						const n = name.toLowerCase();
+						if (n.startsWith('cristal')) return 'cristal';
+						if (n.startsWith('seta')) return 'seta';
+						return null;
+					};
+					gltf.scene.traverse((o) => {
+						if (!o.name) return;
+						const kind = isCollectible(o.name);
+						if (kind) {
+							refs.collectibles.push({ obj: o, kind, taken: false, deposited: false });
+						}
+					});
+
+					// Ajustar cámara a la posición inicial del jugador
+					controls.target.copy(refs.player.position).add(new THREE.Vector3(0, 1.2, 0));
+					camera.position.copy(refs.player.position).add(new THREE.Vector3(4, 3, 6));
+					controls.update();
+
+					state.loaded = true;
+					statusEl.textContent = 'Listo: mueve al alquimista y recoge ingredientes';
+				},
+				(xhr) => {
+					const t = xhr.total || 1;
+					const pct = Math.round((xhr.loaded / t) * 100);
+					statusEl.textContent = `Cargando escenario… ${pct}%`;
+				},
+				(err) => {
+					console.error(err);
+					statusEl.textContent = 'Error cargando el escenario (.glb)';
+				}
+			);
+
+			// Entradas teclado
+			window.addEventListener('keydown', (e) => {
+				state.keys[e.code] = true;
+				// Evitar scroll con WASD/Space
+				if (["KeyW","KeyA","KeyS","KeyD","Space","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(e.code)) {
+					e.preventDefault();
+				}
+				if (e.code === 'KeyE') tryPickup();
+				if (e.code === 'KeyF') tryDrop();
+			});
+			window.addEventListener('keyup', (e) => { state.keys[e.code] = false; });
+
+			function movePlayer(dt) {
+				if (!state.loaded) return;
+				const speed = state.speed * (state.keys['ShiftLeft'] || state.keys['ShiftRight'] ? state.runMultiplier : 1.0);
+
+				// Dirección relativa a la cámara (XZ)
+				const forward = new THREE.Vector3();
+				camera.getWorldDirection(forward);
+				forward.y = 0; forward.normalize();
+				const right = new THREE.Vector3().crossVectors(forward, new THREE.Vector3(0,1,0)).negate();
+
+				const dir = new THREE.Vector3();
+				if (state.keys['KeyW'] || state.keys['ArrowUp']) dir.add(forward);
+				if (state.keys['KeyS'] || state.keys['ArrowDown']) dir.sub(forward);
+				if (state.keys['KeyA'] || state.keys['ArrowLeft']) dir.sub(right);
+				if (state.keys['KeyD'] || state.keys['ArrowRight']) dir.add(right);
+				if (dir.lengthSq() > 0) {
+					dir.normalize().multiplyScalar(speed * dt);
+					refs.player.position.add(dir);
+					// Orientar el alquimista hacia el movimiento
+					const facing = Math.atan2(dir.x, dir.z);
+					refs.alquimista.rotation.y = facing;
+				}
+
+				// Mantener la cámara siguiendo al jugador
+				const target = new THREE.Vector3().copy(refs.player.position).add(new THREE.Vector3(0, 1.2, 0));
+				controls.target.lerp(target, 1.0);
+			}
+
+			function nearestCollectible(maxDist = 1.5) {
+				if (!refs.collectibles.length) return null;
+				const p = worldPos(refs.player);
+				let best = null; let bestD = Infinity;
+				for (const c of refs.collectibles) {
+					if (c.taken || c.deposited) continue;
+					const d = distance(worldPos(c.obj), p);
+					if (d < bestD && d <= maxDist) { bestD = d; best = c; }
+				}
+				return best;
+			}
+
+			function tryPickup() {
+				if (!state.loaded || state.carrying) return;
+				const c = nearestCollectible();
+				if (!c) { hint('No hay objetos cercanos'); return; }
+				// Adjuntar al ancla de mano conservando posición relativa actual
+				refs.handAnchor.attach(c.obj);
+				c.taken = true;
+				state.carrying = c;
+				hint(`Recogido ${c.kind}`);
+			}
+
+			function tryDrop() {
+				if (!state.loaded || !state.carrying) { hint('No llevas nada'); return; }
+				if (!refs.caldero) { hint('No hay caldero en la escena'); return; }
+				const pPlayer = worldPos(refs.player);
+				const pCaldero = worldPos(refs.caldero);
+				const d = distance(pPlayer, pCaldero);
+				if (d > 2.2) { hint('Acércate al caldero para soltar'); return; }
+
+				// Soltar en el caldero: re-parent a la escena y posicionar sobre el caldero
+				const obj = state.carrying.obj;
+				scene.attach(obj);
+				// Calcular un punto de caída encima del caldero
+				tmpBox3.setFromObject(refs.caldero);
+				const dropX = pCaldero.x + (Math.random() - 0.5) * 0.4;
+				const dropZ = pCaldero.z + (Math.random() - 0.5) * 0.4;
+				const dropY = tmpBox3.max.y + 0.15;
+				obj.position.set(dropX, dropY, dropZ);
+				state.carrying.deposited = true;
+				// Actualizar marcador
+				if (state.carrying.kind === 'cristal') state.collected.cristales += 1;
+				if (state.carrying.kind === 'seta') state.collected.setas += 1;
+				scoreEl.textContent = `Cristales: ${state.collected.cristales} · Setas: ${state.collected.setas}`;
+				hint(`Depositado ${state.carrying.kind} en el caldero`);
+				state.carrying = null;
+			}
+
+			let hintTimeout = null;
+			function hint(msg) {
+				clearTimeout(hintTimeout);
+				hintEl.textContent = msg;
+				hintEl.style.opacity = '1';
+				hintTimeout = setTimeout(() => { hintEl.style.opacity = '0.85'; }, 1500);
+			}
+
+			function animate() {
+				const dt = clock.getDelta();
+				movePlayer(dt);
+				controls.update();
+				renderer.render(scene, camera);
+				requestAnimationFrame(animate);
+			}
+			animate();
+
+			window.addEventListener('resize', () => {
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+				renderer.setSize(window.innerWidth, window.innerHeight);
+			});
+		</script>
+	</body>
+	</html>
+
