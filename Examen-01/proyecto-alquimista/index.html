@@ -50,6 +50,13 @@
 			<div><b>Acciones:</b> E recoger (cerca de cristal/seta) · F soltar en el caldero</div>
 			<div><b>Consejos:</b> Acércate a los objetos (~1.5m) y al caldero (~2.2m)</div>
 			<div id="status">Cargando escenario…</div>
+			<div style="margin-top:6px; display:flex; align-items:center; gap:8px;">
+				<button id="musicToggle" style="padding:4px 8px;">🔊 Música</button>
+				<label style="display:flex; align-items:center; gap:6px;">
+					<span style="font-size:12px; opacity:0.8;">Volumen</span>
+					<input id="musicVolume" type="range" min="0" max="1" step="0.01" value="0.35" />
+				</label>
+			</div>
 			<div id="score" style="margin-top:4px;">Cristales: 0 · Setas: 0</div>
 		</div>
 		<div id="hint">Acércate a un cristal o seta y pulsa E</div>
@@ -88,6 +95,55 @@
 			cameraTop.position.set(0, 10, 0);
 			let activeCamera = cameraThird;
 
+			// Audio: listener y fuentes
+			const audioListener = new THREE.AudioListener();
+			activeCamera.add(audioListener);
+			const audioLoader = new THREE.AudioLoader();
+			const audioFondo = new THREE.Audio(audioListener);
+			const sfxRecoger = new THREE.Audio(audioListener);
+			const sfxSoltar = new THREE.Audio(audioListener);
+			const sfxCaminar = new THREE.Audio(audioListener);
+			// Cargar pistas (ajusta extensión según tus archivos)
+			audioLoader.load('./assets/sounds/fondo.mp3', (buffer) => {
+				audioFondo.setBuffer(buffer);
+				audioFondo.setLoop(true);
+				audioFondo.setVolume(0.35);
+			});
+						// UI de música: toggle y volumen
+						const musicToggle = document.getElementById('musicToggle');
+						const musicVolume = document.getElementById('musicVolume');
+						let musicEnabled = true;
+						musicToggle.addEventListener('click', () => {
+							musicEnabled = !musicEnabled;
+							if (musicEnabled) {
+								musicToggle.textContent = '🔊 Música';
+								if (audioFondo.buffer && !audioFondo.isPlaying) audioFondo.play();
+							} else {
+								musicToggle.textContent = '🔇 Música';
+								if (audioFondo.isPlaying) audioFondo.stop();
+							}
+						});
+						musicVolume.addEventListener('input', (e) => {
+							const v = parseFloat(e.target.value);
+							audioFondo.setVolume(v);
+						});
+
+			audioLoader.load('./assets/sounds/recoger.mp3', (buffer) => {
+				sfxRecoger.setBuffer(buffer);
+				sfxRecoger.setLoop(false);
+				sfxRecoger.setVolume(0.8);
+			});
+			audioLoader.load('./assets/sounds/soltar.mp3', (buffer) => {
+				sfxSoltar.setBuffer(buffer);
+				sfxSoltar.setLoop(false);
+				sfxSoltar.setVolume(0.8);
+			});
+			audioLoader.load('./assets/sounds/caminar.mp3', (buffer) => {
+				sfxCaminar.setBuffer(buffer);
+				sfxCaminar.setLoop(true);
+				sfxCaminar.setVolume(0.6);
+			});
+
 			// Controles orbit (desactivados por defecto para soporte sin mouse)
 			const controls = new OrbitControls(cameraThird, renderer.domElement);
 			controls.enableDamping = true;
@@ -115,7 +171,13 @@
 				camDistance: 6,  // distancia detrás del jugador
 				camHeight: 3,    // altura de cámara
 				turnSmooth: 3,   // suavizado de giro (menor = más suave)
-				facingYaw: 0     // yaw actual suavizado del alquimista
+				facingYaw: 0,    // yaw actual suavizado del alquimista
+				// Física básica
+				velocityY: 0,
+				gravity: -9.8,
+				playerRadius: 0.25,
+				groundSnapMax: 0.3,
+				walkingSfx: false
 			};
 
 			// Objetos clave
@@ -127,6 +189,7 @@
 				player: new THREE.Group(),
 				handAnchor: new THREE.Group(),
 				collectibles: [], // { obj, kind: 'cristal'|'seta', taken: false, deposited: false }
+				obstacles: []     // { obj, box: Box3 }
 			};
 			refs.player.name = 'PlayerRoot';
 			refs.handAnchor.position.set(0.25, 1.4, 0.35); // offset aproximado frente a la mano
@@ -214,6 +277,46 @@
 						}
 					});
 
+					// Obstáculos: árboles y caldero para colisión simple (AABB)
+					const isObstacle = (name) => {
+						const n = name.toLowerCase();
+						if (n.startsWith('arbol')) return true;
+						if (n === 'caldero') return true;
+						return false;
+					};
+					gltf.scene.traverse((o) => {
+						if (!o.name) return;
+						if (isObstacle(o.name)) {
+							const box = new THREE.Box3().setFromObject(o);
+							// Ajuste único: encoger ligeramente el AABB para evitar sobrebloqueo
+							box.expandByScalar(-0.05);
+							refs.obstacles.push({ obj: o, box });
+						}
+					});
+
+					// Función para resolver solapamiento inicial del spawn con obstáculos
+					function resolveSpawnOverlap() {
+						if (!refs.obstacles.length) return;
+						const pos = refs.player.position.clone();
+						for (const ob of refs.obstacles) {
+							const minX = ob.box.min.x - state.playerRadius;
+							const maxX = ob.box.max.x + state.playerRadius;
+							const minZ = ob.box.min.z - state.playerRadius;
+							const maxZ = ob.box.max.z + state.playerRadius;
+							if (pos.x >= minX && pos.x <= maxX && pos.z >= minZ && pos.z <= maxZ) {
+								const center = new THREE.Vector3(
+									(ob.box.min.x + ob.box.max.x) * 0.5,
+									0,
+									(ob.box.min.z + ob.box.max.z) * 0.5
+								);
+								const dir = new THREE.Vector3().subVectors(pos, center);
+								if (dir.lengthSq() === 0) dir.set(1, 0, 0);
+								dir.normalize().multiplyScalar(state.playerRadius + 0.3);
+								refs.player.position.add(dir);
+							}
+						}
+					}
+
 					// Ajustar cámaras a la posición inicial del jugador
 					controls.target.copy(refs.player.position).add(new THREE.Vector3(0, 1.2, 0));
 					cameraThird.position.copy(refs.player.position).add(new THREE.Vector3(4, 3, 6));
@@ -221,6 +324,9 @@
 					cameraTop.position.copy(refs.player.position).add(new THREE.Vector3(0, 10, 0));
 					cameraTop.lookAt(new THREE.Vector3().copy(refs.player.position));
 					controls.update();
+
+					// Empujar fuera si el spawn cayó dentro de algún obstáculo
+					resolveSpawnOverlap();
 
 					state.loaded = true;
 					statusEl.textContent = 'Listo: mueve al alquimista y recoge ingredientes';
@@ -246,6 +352,10 @@
 				if (e.code === 'KeyE') tryPickup();
 				if (e.code === 'KeyF') tryDrop();
 				if (e.code === 'KeyC') toggleCamera();
+				// Desbloquear/arrancar música de fondo tras primera interacción
+				if (!audioFondo.isPlaying && audioFondo.buffer) {
+					audioFondo.play();
+				}
 				// Ajustes de cámara para laptops sin mouse
 				// Controles de cámara con letras (sin corchetes ni signos)
 				if (e.code === 'KeyJ') state.camYawOffset -= 0.1;      // girar cámara a la izquierda
@@ -276,6 +386,10 @@
 							activeCamera = (activeCamera === cameraThird) ? cameraTop : cameraThird;
 							const useControls = (activeCamera === cameraThird);
 							controls.enabled = useControls;
+							// Mantener el listener en la cámara activa
+							cameraThird.remove(audioListener);
+							cameraTop.remove(audioListener);
+							activeCamera.add(audioListener);
 							hint(useControls ? 'Cámara tercera persona' : 'Cámara cenital');
 						}
 			window.addEventListener('keyup', (e) => { state.keys[e.code] = false; });
@@ -306,20 +420,106 @@
 				if (state.keys['ArrowDown']) dir.sub(chrForward);
 				if (state.keys['ArrowLeft']) dir.sub(chrRight);
 				if (state.keys['ArrowRight']) dir.add(chrRight);
+				const movingWithArrows = state.keys['ArrowUp'] || state.keys['ArrowDown'] || state.keys['ArrowLeft'] || state.keys['ArrowRight'];
 				if (dir.lengthSq() > 0) {
 					dir.normalize().multiplyScalar(speed * dt);
-					refs.player.position.add(dir);
+					// Intentar mover y evitar colisiones con obstáculos (AABB)
+					const nextPos = new THREE.Vector3().copy(refs.player.position).add(dir);
+					if (!collides(nextPos)) {
+						refs.player.position.copy(nextPos);
+					} else {
+						// intento simple de deslizamiento: probar sólo X y sólo Z
+						const tryX = new THREE.Vector3(refs.player.position.x + dir.x, refs.player.position.y, refs.player.position.z);
+						if (!collides(tryX)) refs.player.position.copy(tryX);
+						const tryZ = new THREE.Vector3(refs.player.position.x, refs.player.position.y, refs.player.position.z + dir.z);
+						if (!collides(tryZ)) refs.player.position.copy(tryZ);
+					}
 					// Orientar el alquimista hacia el movimiento con suavizado
 					const targetYaw = Math.atan2(dir.x, dir.z);
 					// suavizado: mover facingYaw hacia targetYaw
 					const angleDelta = ((targetYaw - state.facingYaw + Math.PI) % (2 * Math.PI)) - Math.PI;
 					state.facingYaw += angleDelta * Math.min(1, state.turnSmooth * dt);
 					refs.alquimista.rotation.y = state.facingYaw;
+
+					// SFX caminar: sólo cuando se usan flechas
+					if (movingWithArrows && sfxCaminar.buffer && !state.walkingSfx) {
+						sfxCaminar.play();
+						state.walkingSfx = true;
+					}
 				}
+				else {
+					// Parar SFX caminar al detenerse
+					if (state.walkingSfx && sfxCaminar.isPlaying) {
+						sfxCaminar.stop();
+					}
+					state.walkingSfx = false;
+				}
+
+				// Física: gravedad + ajuste al piso mediante raycast
+				applyGravityAndGround(dt);
 
 				// Mantener la cámara siguiendo al jugador
 				const target = new THREE.Vector3().copy(refs.player.position).add(new THREE.Vector3(0, 1.2, 0));
 				controls.target.copy(target);
+			}
+
+			const raycaster = new THREE.Raycaster();
+			function applyGravityAndGround(dt) {
+				if (!refs.piso) return;
+				// Raycast hacia abajo desde la posición del jugador
+				raycaster.set(new THREE.Vector3(refs.player.position.x, refs.player.position.y + 1, refs.player.position.z), new THREE.Vector3(0, -1, 0));
+				const intersects = raycaster.intersectObject(refs.piso, true);
+				if (intersects.length > 0) {
+					const hitY = intersects[0].point.y;
+					const deltaY = refs.player.position.y - hitY;
+					if (deltaY <= state.groundSnapMax) {
+						// En el suelo: pegar al piso y resetear gravedad
+						refs.player.position.y = hitY;
+						state.velocityY = 0;
+						return;
+					}
+				}
+				// En el aire: aplicar gravedad
+				state.velocityY += state.gravity * dt;
+				refs.player.position.y += state.velocityY * dt;
+			}
+
+			function collides(testPos) {
+							// Colisión 2D (XZ) tipo círculo vs AABB
+							const r = state.playerRadius;
+							for (const ob of refs.obstacles) {
+								const minX = ob.box.min.x - r;
+								const maxX = ob.box.max.x + r;
+								const minZ = ob.box.min.z - r;
+								const maxZ = ob.box.max.z + r;
+								if (testPos.x >= minX && testPos.x <= maxX && testPos.z >= minZ && testPos.z <= maxZ) {
+									return true;
+								}
+							}
+							return false;
+
+			function resolveSpawnOverlap() {
+				if (!refs.obstacles.length) return;
+				const pos = refs.player.position.clone();
+				for (const ob of refs.obstacles) {
+					const minX = ob.box.min.x - state.playerRadius;
+					const maxX = ob.box.max.x + state.playerRadius;
+					const minZ = ob.box.min.z - state.playerRadius;
+					const maxZ = ob.box.max.z + state.playerRadius;
+					if (pos.x >= minX && pos.x <= maxX && pos.z >= minZ && pos.z <= maxZ) {
+						// Empujar hacia afuera en dirección desde el centro del obstáculo
+						const center = new THREE.Vector3(
+							(ob.box.min.x + ob.box.max.x) * 0.5,
+							0,
+							(ob.box.min.z + ob.box.max.z) * 0.5
+						);
+						const dir = new THREE.Vector3().subVectors(pos, center);
+						if (dir.lengthSq() === 0) dir.set(1, 0, 0);
+						dir.normalize().multiplyScalar(state.playerRadius + 0.3);
+						refs.player.position.add(dir);
+					}
+				}
+			}
 			}
 
 			function nearestCollectible(maxDist = 1.5) {
@@ -342,6 +542,7 @@
 				refs.handAnchor.attach(c.obj);
 				c.taken = true;
 				state.carrying = c;
+				if (sfxRecoger.buffer) sfxRecoger.play();
 				hint(`Recogido ${c.kind}`);
 			}
 
@@ -367,6 +568,7 @@
 				if (state.carrying.kind === 'cristal') state.collected.cristales += 1;
 				if (state.carrying.kind === 'seta') state.collected.setas += 1;
 				scoreEl.textContent = `Cristales: ${state.collected.cristales} · Setas: ${state.collected.setas}`;
+				if (sfxSoltar.buffer) sfxSoltar.play();
 				hint(`Depositado ${state.carrying.kind} en el caldero`);
 				state.carrying = null;
 			}
