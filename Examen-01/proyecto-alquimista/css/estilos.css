@@ -1,0 +1,38 @@
+/* Estilos principales de Proyecto Alquimista
+   Separa la presentación del HTML/JS y mejora el mantenimiento */
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #0b0e13;
+  color: #e6e6e6;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+}
+#ui {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 10px 12px;
+  border-radius: 10px;
+  line-height: 1.35;
+  z-index: 10;
+  user-select: none;
+}
+#ui b { color: #79ffe1; }
+#hint {
+  position: fixed;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.5);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+canvas { display: block; }
+#musicToggle { padding: 4px 8px; }
+#score { margin-top: 4px; }
