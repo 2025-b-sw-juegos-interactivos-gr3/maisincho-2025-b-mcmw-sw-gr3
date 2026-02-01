@@ -1,0 +1,59 @@
+[gd_scene format=3 uid="uid://cvf1xnb54jt2e"]
+
+[ext_resource type="Script" uid="uid://d1d1gxxtgfx04" path="res://scripts/game_over_ui.gd" id="1_wv210"]
+
+[sub_resource type="FontVariation" id="FontVariation_a7g6x"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_xwbna"]
+font = SubResource("FontVariation_a7g6x")
+font_size = 160
+font_color = Color(0.54509807, 0.60784316, 0.7058824, 1)
+outline_size = 20
+outline_color = Color(0.23529412, 0.19607843, 0.2, 1)
+shadow_size = 25
+shadow_color = Color(1.445, 1.243, 1.263, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_2tmsr"]
+font_size = 40
+font_color = Color(0.794, 0.882, 1.021, 1)
+outline_size = 15
+outline_color = Color(0.25882354, 0.21568628, 0.21960784, 1)
+shadow_size = 20
+shadow_color = Color(0.25882354, 0.21568628, 0.21960784, 1)
+
+[node name="GameOverUi" type="CanvasLayer" unique_id=32039501]
+script = ExtResource("1_wv210")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=369620884]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.16470589, 0.18431373, 0.27058825, 0.54901963)
+
+[node name="Label" type="Label" parent="." unique_id=497165868]
+offset_left = 122.0
+offset_top = 47.0
+offset_right = 1040.0
+offset_bottom = 266.0
+text = "GAME OVER"
+label_settings = SubResource("LabelSettings_xwbna")
+
+[node name="Label2" type="Label" parent="." unique_id=1481645765]
+offset_left = 298.0
+offset_top = 313.0
+offset_right = 861.0
+offset_bottom = 368.0
+text = "¡Haz agotado todas tus vidas!"
+label_settings = SubResource("LabelSettings_2tmsr")
+
+[node name="Button" type="Button" parent="." unique_id=1245602361]
+process_mode = 3
+offset_left = 408.0
+offset_top = 480.0
+offset_right = 673.0
+offset_bottom = 571.0
+text = "REINTENTAR"
+
+[connection signal="pressed" from="Button" to="." method="_on_button_pressed"]

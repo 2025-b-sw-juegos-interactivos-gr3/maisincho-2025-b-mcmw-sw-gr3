@@ -1,0 +1,92 @@
+[gd_scene format=3 uid="uid://i215ovcmqqpq"]
+
+[ext_resource type="Script" uid="uid://cvgf67mqhmym4" path="res://scripts/menu_inicio.gd" id="1_n0tpi"]
+
+[sub_resource type="FontVariation" id="FontVariation_n0tpi"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_8m8lv"]
+font = SubResource("FontVariation_n0tpi")
+font_size = 80
+font_color = Color(0.54509807, 0.60784316, 0.7058824, 1)
+outline_size = 20
+outline_color = Color(0.23529412, 0.19607843, 0.2, 1)
+shadow_size = 25
+shadow_color = Color(1.445, 1.243, 1.263, 1)
+
+[sub_resource type="FontVariation" id="FontVariation_gdope"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_m6pxn"]
+font = SubResource("FontVariation_gdope")
+font_size = 25
+font_color = Color(0.7936668, 0.8824018, 1.0210502, 1)
+outline_size = 11
+outline_color = Color(0.2585652, 0.2162058, 0.22044173, 1)
+shadow_size = 14
+shadow_color = Color(0.25264242, 0.21147478, 0.21490538, 1)
+
+[sub_resource type="LabelSettings" id="LabelSettings_n0tpi"]
+font_size = 25
+font_color = Color(0.794, 0.882, 1.021, 1)
+outline_size = 11
+outline_color = Color(0.25882354, 0.21568628, 0.21960784, 1)
+shadow_size = 14
+shadow_color = Color(0.2509804, 0.21176471, 0.21568628, 1)
+
+[sub_resource type="FontVariation" id="FontVariation_8m8lv"]
+
+[sub_resource type="Theme" id="Theme_gdope"]
+default_font = SubResource("FontVariation_8m8lv")
+default_font_size = 20
+
+[node name="MenuInicio" type="CanvasLayer" unique_id=1400098700]
+process_mode = 3
+script = ExtResource("1_n0tpi")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=1205154602]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.16470589, 0.18431373, 0.27058825, 0.54901963)
+
+[node name="Label" type="Label" parent="." unique_id=1384130322]
+offset_left = 215.0
+offset_top = 37.0
+offset_right = 917.0
+offset_bottom = 147.0
+text = "EL ÚLTIMO ÁRBOL"
+label_settings = SubResource("LabelSettings_8m8lv")
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="Label2" type="Label" parent="." unique_id=1735910732]
+offset_left = 222.0
+offset_top = 217.0
+offset_right = 875.0
+offset_bottom = 339.0
+text = "El planeta se ha marchitado. Tu misión es encontrar y 
+rescatar el único árbol verde que queda con vida. 
+¡Cuidado con los pinchos!"
+label_settings = SubResource("LabelSettings_m6pxn")
+
+[node name="Label3" type="Label" parent="." unique_id=158478435]
+offset_left = 471.0
+offset_top = 367.0
+offset_right = 645.0
+offset_bottom = 478.0
+text = "Mover: A / D
+Saltar: Espacio
+Dash: Shift"
+label_settings = SubResource("LabelSettings_n0tpi")
+
+[node name="Button" type="Button" parent="." unique_id=469609657]
+offset_left = 441.0
+offset_top = 529.0
+offset_right = 657.0
+offset_bottom = 603.0
+theme = SubResource("Theme_gdope")
+theme_override_colors/font_color = Color(0.875, 0.875, 0.875, 1)
+text = "¡ENTENDIDO!"
+
+[connection signal="pressed" from="Button" to="." method="_on_button_pressed"]

@@ -1,0 +1,90 @@
+[gd_scene format=3 uid="uid://bjsf3q6hvbyji"]
+
+[ext_resource type="Texture2D" uid="uid://ciw4hbd24pas3" path="res://assets/personaje/Poses/adventurer_stand.png" id="1_p0vlq"]
+[ext_resource type="Texture2D" uid="uid://bbns3aiw2deoq" path="res://assets/personaje/Poses/adventurer_jump.png" id="2_3li8b"]
+[ext_resource type="Texture2D" uid="uid://v0od78y5iqpd" path="res://assets/personaje/Poses/adventurer_walk2.png" id="3_mdl7e"]
+[ext_resource type="AudioStream" uid="uid://ddl5h4d3mk1lo" path="res://assets/sounds/saltar.mp3" id="4_qu4a1"]
+[ext_resource type="AudioStream" uid="uid://bdkmgxgj0qyao" path="res://assets/sounds/caminar.mp3" id="5_70d11"]
+[ext_resource type="AudioStream" uid="uid://d0so1fag6k0w3" path="res://assets/sounds/dolor.mp3" id="6_cw2d6"]
+[ext_resource type="Texture2D" uid="uid://c3xnmh3cahnbe" path="res://assets/personaje/vida/Life.png" id="7_khinc"]
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_qu4a1"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("1_p0vlq")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("2_3li8b")
+}],
+"loop": true,
+"name": &"jump",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": ExtResource("3_mdl7e")
+}],
+"loop": true,
+"name": &"run",
+"speed": 5.0
+}]
+
+[sub_resource type="RectangleShape2D" id="RectangleShape2D_v6fml"]
+size = Vector2(44, 81)
+
+[node name="Player" type="CharacterBody2D" unique_id=1609248757]
+position = Vector2(3, -23)
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=640630237]
+sprite_frames = SubResource("SpriteFrames_qu4a1")
+animation = &"jump"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=341287914]
+position = Vector2(0, 13.5)
+shape = SubResource("RectangleShape2D_v6fml")
+
+[node name="Camera2D" type="Camera2D" parent="." unique_id=2127011993]
+limit_left = 0
+limit_bottom = 0
+position_smoothing_enabled = true
+
+[node name="SFX_Jump" type="AudioStreamPlayer2D" parent="." unique_id=188257990]
+stream = ExtResource("4_qu4a1")
+
+[node name="SFX_Walk" type="AudioStreamPlayer2D" parent="." unique_id=176552598]
+stream = ExtResource("5_70d11")
+
+[node name="SFX_Hurt" type="AudioStreamPlayer2D" parent="." unique_id=582265409]
+stream = ExtResource("6_cw2d6")
+
+[node name="HUD" type="CanvasLayer" parent="." unique_id=1799936170]
+
+[node name="HBoxContainer" type="HBoxContainer" parent="HUD" unique_id=1617180101]
+anchors_preset = -1
+anchor_left = 0.021000002
+anchor_top = -0.133
+anchor_right = 0.021000002
+anchor_bottom = -0.133
+offset_left = -4.1920013
+offset_top = 106.184
+offset_right = 387.80798
+offset_bottom = 234.18399
+scale = Vector2(0.3, 0.3)
+
+[node name="Heart1" type="TextureRect" parent="HUD/HBoxContainer" unique_id=1313153177]
+layout_mode = 2
+texture = ExtResource("7_khinc")
+
+[node name="Heart2" type="TextureRect" parent="HUD/HBoxContainer" unique_id=1232785361]
+layout_mode = 2
+texture = ExtResource("7_khinc")
+
+[node name="Heart3" type="TextureRect" parent="HUD/HBoxContainer" unique_id=1361105878]
+layout_mode = 2
+texture = ExtResource("7_khinc")

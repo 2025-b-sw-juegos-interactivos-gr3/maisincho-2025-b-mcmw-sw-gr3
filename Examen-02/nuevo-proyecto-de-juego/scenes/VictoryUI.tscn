@@ -1,0 +1,42 @@
+[gd_scene format=3 uid="uid://br3w64yfn4ckj"]
+
+[ext_resource type="Script" uid="uid://dbewnhtanffah" path="res://scripts/victory_ui.gd" id="1_t2it0"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_gi78u"]
+font_size = 100
+font_color = Color(0.54509807, 0.60784316, 0.7058824, 1)
+outline_size = 50
+outline_color = Color(0.23529412, 0.19607843, 0.2, 1)
+shadow_size = 30
+shadow_color = Color(0.23529412, 0.19607843, 0.2, 1)
+
+[node name="VictoryUi" type="CanvasLayer" unique_id=551853933]
+process_mode = 3
+script = ExtResource("1_t2it0")
+
+[node name="ColorRect" type="ColorRect" parent="." unique_id=1964062041]
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.16470589, 0.18431373, 0.27058825, 0.54901963)
+
+[node name="Label" type="Label" parent="." unique_id=1180527579]
+offset_left = 97.0
+offset_top = 40.0
+offset_right = 1039.0
+offset_bottom = 317.0
+text = "¡Lo haz conseguido!
+      ¡Felicidades!"
+label_settings = SubResource("LabelSettings_gi78u")
+
+[node name="Button" type="Button" parent="." unique_id=1617576065]
+offset_left = 405.0
+offset_top = 443.0
+offset_right = 680.0
+offset_bottom = 534.0
+text = "VOLVER A JUGAR
+"
+
+[connection signal="pressed" from="Button" to="." method="_on_button_pressed"]
